@@ -168,6 +168,8 @@
       btn.innerText = '🔮 기운을 읽고 메뉴 고르는 중...';
       resultBox.style.display = 'none';
 
+      let hasResult = false;
+
       try {
         const res = await fetch('/api/menu', {
           method: 'POST',
@@ -175,24 +177,31 @@
           body: JSON.stringify(payload)
         });
 
-        const data = await res.json();
+        const rawText = await res.text();
+        let data = {};
+        try {
+          data = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          throw new Error(`서버 응답을 해석할 수 없습니다. (HTTP ${res.status})`);
+        }
 
         if (!res.ok) {
-          throw new Error(data.error || '오류가 발생했습니다.');
+          throw new Error(data.error || `오류가 발생했습니다. (HTTP ${res.status})`);
         }
 
         document.getElementById('resEmoji').innerText = data.emoji || '🍽️';
-        document.getElementById('resMenu').innerText = data.menu;
-        document.getElementById('resPoint').innerText = `✨ ${data.luckyPoint}`;
-        document.getElementById('resReason').innerText = data.reason;
-        document.getElementById('resTip').innerText = `💡 곁들임 팁: ${data.sideTip}`;
+        document.getElementById('resMenu').innerText = data.menu || '오늘의 추천 메뉴';
+        document.getElementById('resPoint').innerText = `✨ ${data.luckyPoint || '행운 가득한 한 끼'}`;
+        document.getElementById('resReason').innerText = data.reason || '';
+        document.getElementById('resTip').innerText = `💡 곁들임 팁: ${data.sideTip || '따뜻한 물 한 잔과 함께 즐겨보세요.'}`;
 
         resultBox.style.display = 'block';
+        hasResult = true;
       } catch (err) {
-        alert(err.message);
+        alert(err.message || '메뉴 추천 중 오류가 발생했습니다.');
       } finally {
         btn.disabled = false;
-        btn.innerText = '🔄 다른 메뉴 다시 점지받기';
+        btn.innerText = hasResult ? '🔄 다른 메뉴 다시 점지받기' : '✨ 오늘의 메뉴 점지받기';
       }
     }
   </script>

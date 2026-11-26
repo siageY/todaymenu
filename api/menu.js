@@ -5,7 +5,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { mood, mealTime, weather, fortune } = req.body;
+  let body = {};
+  try {
+    if (typeof req.body === 'string') {
+      body = JSON.parse(req.body || '{}');
+    } else if (req.body && typeof req.body === 'object') {
+      body = req.body;
+    }
+  } catch {
+    return res.status(400).json({ error: '잘못된 요청 형식(JSON)입니다.' });
+  }
+
+  const { mood, mealTime, weather, fortune } = body;
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -45,25 +56,43 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            responseMimeType: "application/json",
+            responseMimeType: 'application/json',
             temperature: 0.8
           }
         })
       }
     );
 
-    const data = await response.json();
+    const rawText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      throw new Error(`Gemini API 응답 파싱 실패 (status ${response.status})`);
+    }
 
     if (!response.ok) {
       throw new Error(data.error?.message || 'Gemini API 호출 실패');
     }
 
-    const resultText = data.candidates[0].content.parts[0].text;
-    const parsedResult = JSON.parse(resultText);
+    const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!resultText) {
+      throw new Error('Gemini API로부터 추천 결과를 받지 못했습니다.');
+    }
+
+    const cleanedText = resultText
+      .trim()
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/, '');
+    const parsedResult = JSON.parse(cleanedText);
+
+    if (!parsedResult || !parsedResult.menu) {
+      throw new Error('추천 메뉴 형식이 올바르지 않습니다.');
+    }
 
     return res.status(200).json(parsedResult);
   } catch (error) {
     console.error('Error:', error);
-    return res.status(500).json({ error: '메뉴를 점지하는 도중 오류가 발생했습니다.' });
+    return res.status(500).json({ error: error.message || '메뉴를 점지하는 도중 오류가 발생했습니다.' });
   }
 }
