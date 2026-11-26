@@ -1,0 +1,69 @@
+// api/menu.js
+export default async function handler(req, res) {
+  // POST 요청만 허용
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  const { mood, mealTime, weather, fortune } = req.body;
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return res.status(500).json({ error: '서버에 GEMINI_API_KEY가 설정되지 않았습니다.' });
+  }
+
+  const prompt = `
+당신은 재치 있고 센스 넘치는 '운세 기반 메뉴 점술가'입니다.
+아래 사용자의 현재 상태를 보고, 오늘 기운을 북돋아 줄 딱 한 가지의 구체적인 메뉴를 추천해 주세요.
+
+[사용자 정보]
+- 식사 시간대: ${mealTime || '아무 때나'}
+- 현재 기분/상태: ${mood || '보통'}
+- 오늘 날씨/분위기: ${weather || '무난함'}
+- 참고할 오늘의 운세 키워드: ${fortune || '평온함'}
+
+[응답 규칙]
+1. 반드시 아래 JSON 형식으로만 응답하고, 마크다운(\`\`\`json)이나 다른 설명은 절대 붙이지 마세요.
+2. 메뉴는 구체적인 음식 이름으로 정해주세요 (예: 한식 대신 '얼큰한 차돌박이 순두부찌개').
+3. 추천 이유는 운세/기분과 엮어서 유머러스하고 설득력 있게 2~3문장으로 작성하세요.
+
+{
+  "menu": "추천 메뉴 이름",
+  "emoji": "음식과 어울리는 이모지 1개",
+  "luckyPoint": "행운 포인트 (예: 붉은 국물이 액운을 막아줌)",
+  "reason": "운세와 기분을 엮은 센스 있는 추천 이유",
+  "sideTip": "함께 곁들이면 좋은 음료나 디저트 한 줄 팁"
+}
+`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            temperature: 0.8
+          }
+        })
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Gemini API 호출 실패');
+    }
+
+    const resultText = data.candidates[0].content.parts[0].text;
+    const parsedResult = JSON.parse(resultText);
+
+    return res.status(200).json(parsedResult);
+  } catch (error) {
+    console.error('Error:', error);
+    return res.status(500).json({ error: '메뉴를 점지하는 도중 오류가 발생했습니다.' });
+  }
+}

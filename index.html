@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>오늘의 행운 메뉴 점술가</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #f59e0b;
+      --accent-hover: #d97706;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+    body {
+      margin: 0;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      width: 100%;
+      max-width: 440px;
+      background: var(--card);
+      border-radius: 20px;
+      padding: 28px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; text-align: center; }
+    p.subtitle { color: var(--muted); font-size: 0.9rem; text-align: center; margin: 0 0 24px; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+    select, input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 12px;
+      background: var(--accent);
+      color: #0f172a;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* 결과 카드 영역 */
+    .result-box {
+      display: none;
+      margin-top: 24px;
+      padding: 22px;
+      background: #0f172a;
+      border-radius: 16px;
+      border: 1px solid var(--accent);
+      text-align: center;
+      animation: fadeIn 0.4s ease;
+    }
+    .emoji { font-size: 3.2rem; margin-bottom: 8px; }
+    .menu-title { font-size: 1.4rem; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
+    .badge {
+      display: inline-block;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--accent);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+    .reason { font-size: 0.95rem; line-height: 1.6; color: #e2e8f0; margin-bottom: 14px; text-align: left; }
+    .tip {
+      font-size: 0.85rem;
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: left;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔮 오늘의 운세 메뉴 추천</h1>
+    <p class="subtitle">기운과 기분을 읽고 오늘 딱 맞는 한 끼를 점지해 드립니다</p>
+
+    <div class="form-group">
+      <label for="mealTime">언제 드시나요?</label>
+      <select id="mealTime">
+        <option value="점심 식사">점심 식사</option>
+        <option value="저녁 식사">저녁 식사</option>
+        <option value="야식 / 술안주">야식 / 술안주</option>
+        <option value="브런치 / 간식">브런치 / 간식</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="mood">지금 기분이나 컨디션은?</label>
+      <input type="text" id="mood" placeholder="예: 피곤함, 스트레스 받음, 기분 최고, 돈 쓰고 싶음" />
+    </div>
+
+    <div class="form-group">
+      <label for="weather">오늘 날씨나 주변 분위기</label>
+      <input type="text" id="weather" placeholder="예: 쌀쌀함, 비 오는 날, 혼밥, 직장 동료와 함께" />
+    </div>
+
+    <div class="form-group">
+      <label for="fortune">오늘의 운세 키워드 (선택)</label>
+      <input type="text" id="fortune" placeholder="예: 귀인을 만남, 재물운 좋음, 조심해야 함" />
+    </div>
+
+    <button id="submitBtn" onclick="getMenu()">✨ 오늘의 메뉴 점지받기</button>
+
+    <div id="resultBox" class="result-box">
+      <div id="resEmoji" class="emoji">🍜</div>
+      <div id="resMenu" class="menu-title">메뉴 이름</div>
+      <div id="resPoint" class="badge">행운 포인트</div>
+      <p id="resReason" class="reason"></p>
+      <div id="resTip" class="tip"></div>
+    </div>
+  </div>
+
+  <script>
+    // 기존 운세 페이지에서 ?fortune=... 형태로 넘어온 값이 있다면 자동 입력
+    window.addEventListener('DOMContentLoaded', () => {
+      const params = new URLSearchParams(window.location.search);
+      const fortuneParam = params.get('fortune');
+      if (fortuneParam) {
+        document.getElementById('fortune').value = fortuneParam;
+      }
+    });
+
+    async function getMenu() {
+      const btn = document.getElementById('submitBtn');
+      const resultBox = document.getElementById('resultBox');
+
+      const payload = {
+        mealTime: document.getElementById('mealTime').value,
+        mood: document.getElementById('mood').value,
+        weather: document.getElementById('weather').value,
+        fortune: document.getElementById('fortune').value
+      };
+
+      btn.disabled = true;
+      btn.innerText = '🔮 기운을 읽고 메뉴 고르는 중...';
+      resultBox.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || '오류가 발생했습니다.');
+        }
+
+        document.getElementById('resEmoji').innerText = data.emoji || '🍽️';
+        document.getElementById('resMenu').innerText = data.menu;
+        document.getElementById('resPoint').innerText = `✨ ${data.luckyPoint}`;
+        document.getElementById('resReason').innerText = data.reason;
+        document.getElementById('resTip').innerText = `💡 곁들임 팁: ${data.sideTip}`;
+
+        resultBox.style.display = 'block';
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '🔄 다른 메뉴 다시 점지받기';
+      }
+    }
+  </script>
+</body>
+</html>
