@@ -47,32 +47,49 @@ export default async function handler(req, res) {
 }
 `;
 
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+  const requestBody = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.8
+    }
+  });
+
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
-      {
+    let data = null;
+    let lastErrorMessage = 'Gemini API 호출 실패';
+
+    // 일시적 과부하(503/429 등) 시 최대 3회까지 재시도
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            temperature: 0.8
-          }
-        })
+        body: requestBody
+      });
+
+      const rawText = await response.text();
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        data = null;
+        lastErrorMessage = `Gemini API 응답 파싱 실패 (status ${response.status})`;
       }
-    );
 
-    const rawText = await response.text();
-    let data;
-    try {
-      data = JSON.parse(rawText);
-    } catch {
-      throw new Error(`Gemini API 응답 파싱 실패 (status ${response.status})`);
-    }
+      if (response.ok && data) {
+        break;
+      }
 
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Gemini API 호출 실패');
+      lastErrorMessage = data?.error?.message || lastErrorMessage;
+      const isRetryable = [429, 500, 502, 503, 504].includes(response.status);
+      if (!isRetryable || attempt === 2) {
+        if (lastErrorMessage.includes('high demand')) {
+          throw new Error('현재 AI 서버 요청이 몰려 지연되고 있습니다. 잠시 후 다시 버튼을 눌러주세요.');
+        }
+        throw new Error(lastErrorMessage);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
     }
 
     const resultText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
