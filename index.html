@@ -144,12 +144,13 @@
   </div>
 
   <script>
-    // 기존 운세 페이지에서 ?fortune=... 형태로 넘어온 값이 있다면 자동 입력
+    // 기존 운세 페이지에서 ?fortune=... 형태로 넘어온 값이 있다면 자동 입력 후 바로 추천 실행
     window.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const fortuneParam = params.get('fortune');
       if (fortuneParam) {
         document.getElementById('fortune').value = fortuneParam;
+        getMenu();
       }
     });
 
